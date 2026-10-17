@@ -1,0 +1,68 @@
+name: Publish reviewed version
+
+# Prepared only: configure the actual public repository/package and npm trusted
+# publisher for this workflow before deliberately invoking it. No token fallback.
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing version tag matching package.json (for example v0.1.0)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.release_tag }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Verify exact release and repository
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          import { execFileSync } from 'node:child_process';
+          const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+          const tag = process.env.RELEASE_TAG;
+          if (!/^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(tag) || tag !== `v${pkg.version}`) {
+            throw new Error('Select an existing release tag matching the package version.');
+          }
+          const rev = (ref) => execFileSync('git', ['rev-parse', '--verify', ref], { encoding: 'utf8' }).trim();
+          if (rev(`refs/tags/${tag}^{commit}`) !== rev('HEAD')) throw new Error('Tag and checkout differ.');
+          if (process.env.GITHUB_REF !== `refs/tags/${tag}` || process.env.GITHUB_SHA !== rev('HEAD')) {
+            throw new Error('Dispatch this workflow using the same version tag as its workflow ref.');
+          }
+          const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+          if (event.repository?.private !== false) throw new Error('Provenance release requires a public repository.');
+          const repository = typeof pkg.repository === 'string' ? pkg.repository : pkg.repository?.url;
+          const actual = repository?.replace(/^git\+/, '').replace(/\.git$/, '').replace(/\/$/, '');
+          if (actual !== `https://github.com/${process.env.GITHUB_REPOSITORY}`) {
+            throw new Error('Set package.repository to this actual public GitHub repository before publishing.');
+          }
+          if (pkg.private) throw new Error('Package is marked private.');
+          const npm = execFileSync('npm', ['--version'], { encoding: 'utf8' }).trim().split('.').map(Number);
+          if (npm[0] < 11 || (npm[0] === 11 && (npm[1] < 5 || (npm[1] === 5 && npm[2] < 1)))) {
+            throw new Error('npm >=11.5.1 is required for trusted publishing.');
+          }
+          NODE
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - run: npm audit --omit=dev
+      - run: npm pack --dry-run --ignore-scripts
+      - name: Publish with configured npm trusted publisher and provenance
+        run: npm publish --provenance --access public

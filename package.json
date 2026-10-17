@@ -1,0 +1,29 @@
+{
+  "name": "feed-research-memory",
+  "version": "0.1.0",
+  "description": "Import RSS and Atom research sources into DKG Working Memory with source revisions and research annotations.",
+  "author": {
+    "name": "dcftradingcrypt",
+    "url": "https://github.com/dcftradingcrypt"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dcftradingcrypt/feed-research-memory.git"
+  },
+  "homepage": "https://github.com/dcftradingcrypt/feed-research-memory#readme",
+  "bugs": {
+    "url": "https://github.com/dcftradingcrypt/feed-research-memory/issues"
+  },
+  "keywords": ["origintrail", "dkg", "rss", "atom", "research", "working-memory"],
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": { "node": ">=22.13.0" },
+  "bin": { "feed-research-memory": "src/cli.mjs" },
+  "files": ["src", "README.md", "DESIGN.md", "SECURITY.md", "VERIFICATION.md", "LICENSE", "demo"],
+  "scripts": {
+    "test": "node --test --test-concurrency=1 test/*.test.mjs",
+    "test:integration": "node --test --test-concurrency=1 test/local-node.integration.mjs"
+  },
+  "dependencies": { "saxes": "6.0.0" },
+  "publishConfig": { "access": "public", "provenance": true }
+}

@@ -1,0 +1,16 @@
+{
+  "recordedAt": "2026-10-17T12:51:35.811Z",
+  "finishedAt": "2026-10-17T12:51:49.348Z",
+  "durationSeconds": 13.533952375,
+  "commandCount": 13,
+  "graph": "feed-demo-1792241495811",
+  "dkgVersion": "10.0.24",
+  "dkgBuildCommit": "fffef7dd9993f8016c595f525397da440e72a15b",
+  "actualHttpAndStore": true,
+  "transportOnlyHarness": true,
+  "chain": "mock",
+  "fictionalSourceFixtures": true,
+  "packet": "urn:feed-research-memory:packet:eb39a914d429829ae3b879a486be3787c6ebc615b1494092702fcfed16788e8f",
+  "source": "https://research.example.org/feed.atom",
+  "credentialsIncluded": false
+}

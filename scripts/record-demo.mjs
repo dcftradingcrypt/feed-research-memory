@@ -1,0 +1,64 @@
+import { spawn } from 'node:child_process';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { performance } from 'node:perf_hooks';
+import { setTimeout as delay } from 'node:timers/promises';
+
+if (!process.env.DKG_API_URL || !process.env.DKG_AUTH_TOKEN) throw new Error('Run this recorder inside an actual, explicitly configured local DKG node session.');
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const demo = join(root, 'demo');
+await mkdir(demo, { recursive: true });
+const fixture = await readFile(join(root, 'test/fixtures/research.atom'), 'utf8');
+await writeFile(join(demo, 'research.atom'), fixture);
+await writeFile(join(demo, 'corrected.atom'), fixture.replace('128 MiB', '144 MiB'));
+const started = new Date();
+const clock = performance.now();
+const frames = [];
+const emit = (text) => frames.push([(performance.now() - clock) / 1000, 'o', text.replace(/\r?\n/g, '\r\n')]);
+const quote = (value) => /^[A-Za-z0-9_./:=,-]+$/.test(value) ? value : `'${value.replaceAll("'", "'\\''")}'`;
+const graph = `feed-demo-${Date.now()}`;
+const source = 'https://research.example.org/feed.atom';
+
+async function command(args, explanation) {
+  if (explanation) emit(`\n# ${explanation}\n`);
+  emit(`$ feed-research-memory ${args.map(quote).join(' ')}\n`);
+  await delay(450);
+  let stdout = '';
+  const child = spawn(process.execPath, ['src/cli.mjs', ...args], { cwd: root, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
+  child.stdout.on('data', (chunk) => { stdout += chunk; emit(chunk.toString()); });
+  child.stderr.on('data', (chunk) => emit(chunk.toString()));
+  const code = await new Promise((done) => child.once('exit', done));
+  if (code !== 0) throw new Error(`Recorded command failed with exit ${code}.`);
+  await delay(450);
+  return JSON.parse(stdout);
+}
+
+emit('\u001b[2J\u001b[HFeed Research Memory — actual CLI and real local DKG 10.0.24 WM/store\n');
+emit('The two benchmark reports are clearly fictional fixtures. No LLM is used.\n');
+emit('The node uses a documented transport-only loopback harness and mock chain.\n');
+emit('No chain publication, public peer connection, wallet funds or fees.\n');
+await command(['create-graph', graph], 'Create local Context Graph metadata with register:false.');
+await command(['import', 'demo/research.atom', '--source', source, '--graph', graph], 'Import two cited source revisions into private Working Memory.');
+await command(['import', 'demo/research.atom', '--source', source, '--graph', graph], 'Identical retry: existing content and observation heads require no writes.');
+const inbox = await command(['inbox', '--graph', graph], 'A research agent reads current source evidence from the actual node.');
+const a = inbox.entries.find((entry) => entry.id === 'urn:example:method-a');
+const b = inbox.entries.find((entry) => entry.id === 'urn:example:method-b');
+await command(['annotate', '--graph', graph, '--revision', a.root, '--actor', 'Demonstration research agent', '--status', 'selected', '--tag', 'memory-budget', '--note', 'Method A reports "128 MiB".\n研究メモ: 192 MiB の予算に収まる。'], 'Record an explicit research decision and Unicode note against the exact revision.');
+const packet = await command(['packet', '--graph', graph, '--revision', a.root, '--revision', b.root, '--actor', 'Demonstration research agent', '--title', 'Method for a 192 MiB budget', '--question', 'Which fictional benchmark method fits the 192 MiB memory budget?', '--answer', 'Method A uses 128 MiB and fits. Method B uses 256 MiB and exceeds the budget. See the two pinned source revisions and source URLs.'], 'Store the research question, answer and exact evidence citations.');
+await command(['import', 'demo/corrected.atom', '--source', source, '--graph', graph], 'The fixture source corrects Method A to 144 MiB: create a new immutable source revision.');
+await command(['inbox', '--graph', graph, '--contains', '144 MiB'], 'The revised source becomes current and starts with unread research status.');
+await command(['recall', '--graph', graph, '--packet', packet.root], 'Fresh CLI process recalls the earlier answer with its original 128 MiB evidence, not the later source.');
+await command(['history', '--graph', graph, '--identity', a.identity], 'Both source revisions and their separate research states remain inspectable.');
+await command(['import', 'demo/research.atom', '--source', source, '--graph', graph], 'Source reversion A→B→A reuses immutable content and advances the causal observation head.');
+await command(['inbox', '--graph', graph, '--contains', '128 MiB'], 'The original source is current again, including its research note.');
+await command(['import', 'demo/research.atom', '--source', source, '--graph', graph], 'Another identical repeat has no source or observation writes.');
+emit('\n# Completed: import → research decision → cited answer → corrected source → pinned recall → source reversion.\n');
+const duration = (performance.now() - clock) / 1000;
+const header = { version: 2, width: 110, height: 34, timestamp: Math.floor(started.valueOf() / 1000), title: 'Feed Research Memory — actual local DKG research workflow', env: { TERM: 'xterm-256color' } };
+await writeFile(join(demo, 'session.cast'), [JSON.stringify(header), ...frames.map((frame) => JSON.stringify(frame))].join('\n') + '\n');
+const safeData = JSON.stringify({ header, frames, duration }).replaceAll('<', '\\u003c');
+const replay = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Feed Research Memory — recorded local workflow</title><style>body{margin:0;padding:24px;background:#10151c;color:#e7edf4;font:15px system-ui}main{max-width:1150px;margin:auto}h1{font-size:24px}p{line-height:1.5;color:#b7c7d9}button{padding:8px 16px;font:inherit}input{width:65%;vertical-align:middle;margin:12px}pre{background:#070b10;padding:18px;min-height:60vh;max-height:72vh;overflow:auto;white-space:pre-wrap;font:13px/1.5 ui-monospace,monospace;border:1px solid #314055}small{color:#a4b4c8}</style><main><h1>Feed Research Memory</h1><p>A recorded run of actual CLI commands against a real local DKG 10.0.24 HTTP API and Oxigraph store. Benchmark sources are fictional fixtures. Only transport is isolated by a test harness; chain operations use an unfunded mock chain. No LLM, fees, mainnet publication or public peers.</p><button id="play">Play</button><input id="seek" type="range" min="0" max="${duration}" step="0.01" value="0"><small id="time"></small><pre id="screen" aria-label="Recorded terminal output"></pre><p>Pause or drag to inspect complete JSON readbacks. Independent acceptance also ran on twenty selected items from the actual Node.js blog feed; that separate evidence is not simulated by this fixture recording.</p></main><script>const data=${safeData};const screen=document.getElementById('screen'),seek=document.getElementById('seek'),button=document.getElementById('play'),time=document.getElementById('time');let playing=false,start=0,position=0;function render(){screen.textContent=data.frames.filter(f=>f[0]<=position).map(f=>f[2]).join('').replace(/\\u001b\\[[0-?]*[ -/]*[@-~]/g,'').replaceAll('\\r','');screen.scrollTop=screen.scrollHeight;seek.value=position;time.textContent=position.toFixed(1)+' / '+data.duration.toFixed(1)+' s'}button.onclick=()=>{if(position>=data.duration)position=0;playing=!playing;start=performance.now()-position*1000;button.textContent=playing?'Pause':'Play'};seek.oninput=()=>{position=Number(seek.value);start=performance.now()-position*1000;render()};setInterval(()=>{if(!playing)return;position=Math.min(data.duration,(performance.now()-start)/1000);render();if(position>=data.duration){playing=false;button.textContent='Play'}},50);render();</script></html>`;
+await writeFile(join(demo, 'replay.html'), replay);
+await writeFile(join(demo, 'recording-metadata.json'), JSON.stringify({ recordedAt: started.toISOString(), finishedAt: new Date().toISOString(), durationSeconds: duration, commandCount: 13, graph, dkgVersion: '10.0.24', dkgBuildCommit: 'fffef7dd9993f8016c595f525397da440e72a15b', actualHttpAndStore: true, transportOnlyHarness: true, chain: 'mock', fictionalSourceFixtures: true, packet: packet.root, source: source, credentialsIncluded: false }, null, 2));
+process.stdout.write(`Recorded 13 actual CLI commands in ${duration.toFixed(1)} seconds; demo/session.cast and demo/replay.html saved.\n`);

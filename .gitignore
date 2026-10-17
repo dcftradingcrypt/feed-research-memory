@@ -1,0 +1,15 @@
+node_modules/
+coverage/
+*.tgz
+*.log
+.env
+.env.*
+.npmrc
+.dkg/
+local-node/
+local-runtime/
+test-output/
+auth.token
+agent-key.bin
+wallets.json
+wallets.enc.json

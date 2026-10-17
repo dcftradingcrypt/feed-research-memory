@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Research methods — demonstration feed</title>
+    <link>https://research.example.org/</link>
+    <description>Fictional data for repeatable local integration tests.</description>
+    <item>
+      <guid isPermaLink="false">urn:example:method-a</guid>
+      <title>Method A uses less memory</title>
+      <link>https://research.example.org/notes/method-a</link>
+      <pubDate>Fri, 16 Oct 2026 10:00:00 GMT</pubDate>
+      <dc:creator>Example Research Team</dc:creator>
+      <description><![CDATA[In the fictional benchmark, method A used 128 MiB and completed in 12 seconds.]]></description>
+      <category>benchmark</category>
+    </item>
+  </channel>
+</rss>
