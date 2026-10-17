@@ -1,0 +1,146 @@
+name: Publish reviewed CLI container
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing version tag; dispatch using this same tag as the workflow ref
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: container-release-${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    env:
+      IMAGE_NAME: ghcr.io/dcftradingcrypt/feed-research-memory
+      DOCKER_BUILD_RECORD_UPLOAD: 'false'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Verify exact source, tag, version and public repository
+        id: release
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { appendFileSync, readFileSync } from 'node:fs';
+          import { execFileSync } from 'node:child_process';
+          const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+          const tag = process.env.RELEASE_TAG;
+          if (!/^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(tag) || tag !== `v${pkg.version}`) {
+            throw new Error('Release tag must match package.json version.');
+          }
+          const rev = (ref) => execFileSync('git', ['rev-parse', '--verify', ref], { encoding: 'utf8' }).trim();
+          const commit = rev('HEAD');
+          if (rev(`refs/tags/${tag}^{commit}`) !== commit || process.env.GITHUB_SHA !== commit || process.env.GITHUB_REF !== `refs/tags/${tag}`) {
+            throw new Error('Workflow ref, event commit, checkout and version tag must match exactly.');
+          }
+          const repo = 'dcftradingcrypt/feed-research-memory';
+          const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+          const repository = typeof pkg.repository === 'string' ? pkg.repository : pkg.repository?.url;
+          const source = repository?.replace(/^git\+/, '').replace(/\.git$/, '').replace(/\/$/, '');
+          if (process.env.GITHUB_REPOSITORY !== repo || event.repository?.private !== false || source !== `https://github.com/${repo}` || pkg.private || pkg.name !== 'feed-research-memory') {
+            throw new Error('Release requires the declared public source repository and package.');
+          }
+          appendFileSync(process.env.GITHUB_OUTPUT, `version=${pkg.version}\ncommit=${commit}\nimage=${process.env.IMAGE_NAME}:${pkg.version}\n`);
+          NODE
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - run: npm audit --omit=dev
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build once and load the exact release image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          push: false
+          provenance: false
+          tags: ${{ steps.release.outputs.image }}
+          build-args: |
+            VERSION=${{ steps.release.outputs.version }}
+            REVISION=${{ steps.release.outputs.commit }}
+      - name: Smoke-test the nonroot CLI without a network
+        env:
+          IMAGE_TAG: ${{ steps.release.outputs.image }}
+          HELP_FILE: ${{ runner.temp }}/container-help.json
+        run: |
+          test "$(docker image inspect --format '{{.Config.User}}' "$IMAGE_TAG")" = 'node:node'
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges "$IMAGE_TAG" --help > "$HELP_FILE"
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const help = JSON.parse(readFileSync(process.env.HELP_FILE, 'utf8'));
+          if (typeof help.help !== 'string' || !help.help.includes('create-graph') || !help.help.includes('recall')) {
+            throw new Error('Built CLI must return the real JSON command help.');
+          }
+          console.log('Nonroot, read-only, network-disabled CLI JSON help passed.');
+          NODE
+      - name: Log in to GitHub Container Registry with the workflow token
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push the smoke-tested image and record its registry digest
+        id: push
+        env:
+          IMAGE_TAG: ${{ steps.release.outputs.image }}
+        run: |
+          docker push "$IMAGE_TAG"
+          docker image inspect "$IMAGE_TAG" > "$RUNNER_TEMP/pushed-image.json"
+          node --input-type=module <<'NODE'
+          import { appendFileSync, readFileSync } from 'node:fs';
+          const [image] = JSON.parse(readFileSync(`${process.env.RUNNER_TEMP}/pushed-image.json`, 'utf8'));
+          const prefix = `${process.env.IMAGE_NAME}@`;
+          const refs = image.RepoDigests.filter(ref => ref.startsWith(prefix));
+          if (refs.length !== 1 || !/^sha256:[a-f0-9]{64}$/.test(refs[0].slice(prefix.length))) {
+            throw new Error('The pushed registry digest must be unambiguous.');
+          }
+          appendFileSync(process.env.GITHUB_OUTPUT, `digest=${refs[0].slice(prefix.length)}\nreference=${refs[0]}\n`);
+          NODE
+      - name: Attest the published image digest and store the bundle in GHCR
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+          create-storage-record: false
+      - name: Verify registry provenance against this exact source commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE_REF: ${{ steps.push.outputs.reference }}
+        run: |
+          gh attestation verify "oci://$IMAGE_REF" --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/container.yml" \
+            --source-digest "$GITHUB_SHA" --source-ref "$GITHUB_REF" \
+            --signer-digest "$GITHUB_SHA" \
+            --deny-self-hosted-runners --bundle-from-oci --format json > "$RUNNER_TEMP/container-provenance.json"
+          {
+            echo '### Published CLI container'
+            echo "Image: \`$IMAGE_REF\`"
+            echo "Version: \`${{ steps.release.outputs.version }}\`"
+            echo "Source commit: \`$GITHUB_SHA\`"
+            echo 'CLI JSON help passed with --network none, nonroot user and read-only filesystem.'
+            echo 'Digest-bound GitHub build attestation verified from the OCI registry.'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,6 +1,6 @@
 # Submission and release readiness
 
-The public release repository is [dcftradingcrypt/feed-research-memory](https://github.com/dcftradingcrypt/feed-research-memory). Its creation was confirmed on 2026-10-17; the initial README commit was `806186661a12bf2651f975b24d08a5da542fb537`. Full source upload, npm publication and registry submission remain pending. No bounty acceptance, reward receipt or provenance-bearing npm artifact is claimed.
+The public release repository is [dcftradingcrypt/feed-research-memory](https://github.com/dcftradingcrypt/feed-research-memory). A GHCR OCI CLI release is prepared at `ghcr.io/dcftradingcrypt/feed-research-memory:0.1.0`; actual image publication, public visibility and digest-bound GitHub build-attestation verification remain pending. The registry submission will use manual Docker installation only after those steps produce verifiable evidence. Equivalent-registry eligibility remains a committee decision. npm publication is separate and pending. No bounty acceptance, award or reward receipt is claimed.
 
 The named maintainer, **dcftradingcrypt**, commits to **at least six months of support after the approved OriginTrail integration-registry PR is merged**. The intended registry install kind is `cli`, memory layer `WM`, public interface `http-api`, and contributor trust tier `community`.
 
@@ -9,13 +9,13 @@ The named maintainer, **dcftradingcrypt**, commits to **at least six months of s
 | Gate | Required evidence/action before submission |
 | --- | --- |
 | Repository ownership | Public `dcftradingcrypt/feed-research-memory` exists. Manifest repository, homepage and issue-tracker metadata now use its confirmed URL. Upload the approved source tree and pin its actual full commit before release. |
-| Package ownership | Confirm that the npm name/version can be published by the selected owner; the local name `feed-research-memory@0.1.0` does not establish ownership or availability. Keep manifest/lock metadata consistent if renamed. |
+| Package ownership/access | Publish the GHCR image from this repository with its workflow token; confirm owner control, package linkage, public visibility and independent digest-pinned pull. An npm name claim is not required for this OCI route and has not been established. |
 | Maintainer and support | Confirmed maintainer `dcftradingcrypt`; support is committed for at least six months after approved registry merge. Include that exact commitment in the submission. |
 | Local-node evidence | Complete: 20 unit tests and the real local DKG 10.0.24 HTTP/WM-store integration passed; independent acceptance used 20 selected entries from the actual Node.js blog feed. See `VERIFICATION.md` for topology and mock-chain/transport-harness boundaries. |
 | Working demo | Complete: `demo/session.cast` and self-contained `demo/replay.html` record 13 actual CLI commands, including research notes, cited packets, corrected-source recall and reversion. The benchmark feed is explicitly fictional. |
 | Package/release review | A local production audit on 2026-10-17 passed with zero advisories for the current lock (`saxes@6.0.0`, `xmlchars@2.2.0`). Recheck at release; inspect the final packed files, licence and CLI execution, and resolve or explicitly triage any new advisories. Include the security declaration in the release or a pinned public source link. |
-| Publication and provenance | Publish the reviewed version from its exact public commit with real build provenance, then verify the registry artifact and attestation. The workflow below is only prepared; it has not been invoked or validated with an npm account. |
-| Registry entry | Add one entry to `OriginTrail/dkg-integrations` using its current schema: real maintainer, public repo, full 40-character commit, exact published package/version, `Apache-2.0`, accurate primitives, WM/public-HTTP declarations and security posture. Use working pinned design/demo URLs. |
+| Publication and provenance | Publish the reviewed GHCR version from its exact public version-tag commit, then verify the image digest and official GitHub build attestation stored in the OCI registry. Record the release run, digest and commit. `container.yml` is prepared only; no successful image or provenance verification is yet claimed. |
+| Registry entry | Add one entry to `OriginTrail/dkg-integrations` using its current schema: real maintainer, public repo, full 40-character commit, exact published GHCR version/digest, manual CLI installation, `Apache-2.0`, accurate primitives, WM/public-HTTP declarations and security posture. Use working pinned design/demo/container URLs. Do not describe OCI publication as npm publication or guarantee equivalent-registry acceptance. |
 | Attestations | The actual contributor must confirm ownership/proper licensing and absence of intentional backdoors, and accept the program terms. Do not fabricate these on their behalf. |
 | Current round | Refresh the official status, scope, competition and pool information at submission time. Label the PR `cfi-dkgv10-r1` as required. No reserved reward or guaranteed acceptance is claimed. |
 
@@ -23,15 +23,19 @@ The named maintainer, **dcftradingcrypt**, commits to **at least six months of s
 
 `.github/workflows/ci.yml` installs the locked dependency with scripts disabled, runs the unit suite on Node 22.13.0 and 24, and checks the pack list. It does not start a DKG node. Provision an isolated local node separately for `npm run test:integration`, setting `DKG_API_URL` and `DKG_AUTH_TOKEN_FILE` to its endpoint and a private UTF-8 bearer-token file (not the node's encrypted token file). A trusted runner may resolve this through the official authentication interface without logging it. This test leaves its new Context Graph/WM data in the test node.
 
+`.github/workflows/container.yml` is the selected prepared release path. It supports version-tag pushes and manual invocation using that same tag as both workflow ref and input. It checks exact source/tag/version identity, runs unit tests and a dependency audit, builds one nonroot Node 24 `linux/amd64` image, and parses the real CLI help from `docker run --network none`. Only then does it push the tested image using `GITHUB_TOKEN` with `packages:write`, create a digest-bound official GitHub build attestation stored in GHCR, and verify that bundle against the source commit/ref/workflow. The owner must independently confirm public visibility, digest-pinned installation and provenance. [CONTAINER.md](CONTAINER.md) supplies the exact commands and host-node networking caveat. No new account/login, reusable package token, local image build or publication was performed to prepare these files.
+
+## Dormant npm fallback
+
 `.github/workflows/publish.yml` is **manual only** (`workflow_dispatch`), taking an existing release tag such as `v0.1.0`. Invoke the workflow from that same tag, not from a different branch: the workflow ref, event commit, checkout and package version must agree. Preflight also requires the confirmed public repository and matching manifest repository URL. It then installs, tests, checks production advisories and invokes `npm publish --provenance --access public`. None of those future publishing steps has been executed by preparing this workflow.
 
 Publishing setup remains owner work. Configure the npm trusted publisher as GitHub owner `dcftradingcrypt`, repository `feed-research-memory`, workflow filename `publish.yml`, with direct `npm publish` explicitly allowed. This workflow requires GitHub-hosted runners, npm ≥11.5.1 and Node ≥22.14.0; it uses Node 24, OIDC (`id-token:write`) and no stored npm token. The workflow does not prove that npm-side configuration exists or that a publish will succeed. A newly configured trusted publisher must complete its first successful publication within two days.
 
 References checked 2026-10-17: [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/) and [npm provenance](https://docs.npmjs.com/generating-provenance-statements/). Recheck them when performing the actual release.
 
-## New npm package bootstrap and account setup
+## Contingent npm package setup
 
-The connected release environment returned `ENEEDAUTH` from `npm whoami`; an authenticated npm owner identity is not yet available. The minimal account setup is a free npm user account with verified contact details, an interactive login, and account 2FA for package publication/settings. The npm username need not match the GitHub maintainer handle. Do not paste passwords, recovery codes, one-time codes or reusable tokens into this repository.
+This section is a dormant alternative, not a prerequisite for GHCR. The connected release environment returned `ENEEDAUTH` from `npm whoami`; an authenticated npm owner identity is not yet available. No additional npm authentication, staging or publishing is authorized by this document. If the owner later resumes a legitimate npm setup, it requires a free npm account with verified contact details, interactive login and account 2FA for package publication/settings. The npm username need not match the GitHub maintainer handle. Do not paste passwords, recovery codes, one-time codes or reusable tokens into this repository.
 
 The current [`npm trust` documentation](https://docs.npmjs.com/cli/v11/commands/npm-trust/) requires that the package already exist, the caller have write access and account 2FA be enabled. The management command requires npm ≥11.15.0. OIDC alone does not establish ownership of a new name.
 
@@ -54,14 +58,14 @@ This performs a registry configuration write and requires the owner's interactiv
 The release operator controls git/upload. Stage only the project-owned source, fixtures, demonstrations and workflow files; the sibling `runtime`, upstream `dkg` and private proof-node homes stay outside this repository.
 
 ```sh
-git add -- .gitignore .github package.json package-lock.json \
-  README.md DESIGN.md SECURITY.md VERIFICATION.md SUBMISSION.md LICENSE \
+git add -- .gitignore .dockerignore .github Dockerfile package.json package-lock.json \
+  README.md DESIGN.md SECURITY.md VERIFICATION.md SUBMISSION.md CONTAINER.md LICENSE \
   src test scripts demo
 git diff --cached --check
 git diff --cached --stat
 ```
 
-Inspect the staged file list and use the contributor's real git identity. Exclude `node_modules`, tarballs and local credential/evidence directories. Reconcile the initial remote README commit before the approved source commit; do not overwrite remote history. Tag only the reviewed source commit that matches the selected package version. No git initialization, remote change, commit, push or tag was performed by preparing this staging plan.
+Inspect the staged file list and use the contributor's real git identity. Exclude `node_modules`, tarballs and local credential/evidence directories. Preserve existing remote history. Tag only the reviewed source commit that matches the selected package version. The release operator controls all git staging, commits, pushes, tags and publication; this document does not perform them.
 
 ## Scope and award qualification
 

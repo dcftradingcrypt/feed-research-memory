@@ -2,7 +2,7 @@
 
 A one-shot RSS/Atom research inbox for OriginTrail DKG v10 Working Memory. An agent imports a local feed, selects evidence, records its research status and notes, and recalls a research packet with citations to the exact source revisions it used.
 
-The public repository is [dcftradingcrypt/feed-research-memory](https://github.com/dcftradingcrypt/feed-research-memory). The npm release and integration-registry submission are being prepared; registry acceptance and a bounty award are pending. See [SUBMISSION.md](SUBMISSION.md) for release status and the remaining publication steps.
+The public repository is [dcftradingcrypt/feed-research-memory](https://github.com/dcftradingcrypt/feed-research-memory). A versioned GHCR CLI image and its digest-bound GitHub build provenance are being prepared; see [CONTAINER.md](CONTAINER.md) for Docker installation and verification. Actual container publication/verification, npm publication and integration-registry acceptance remain pending. See [SUBMISSION.md](SUBMISSION.md) for release status. No bounty award or payment is claimed.
 
 ## What it does
 
@@ -101,7 +101,7 @@ Unit tests exercise parsing, revisions and the HTTP client. Unlike the normal CL
 
 An isolated verification harness may use the real 10.0.24 daemon, its HTTP routes and Oxigraph WM storage with a **mock chain and a separate transport-only preload** that binds P2P to loopback, disables discovery and denies peer connections. That harness is outside this integration package. Such evidence covers the public HTTP/WM workflow; it does not establish stock node networking, live-chain behavior, sealing, SWM or replication. Normal operators connect this CLI to their own node without that preload.
 
-[DESIGN.md](DESIGN.md) explains the research workflow and promotion path. [SECURITY.md](SECURITY.md) declares network and write authority. The release workflow is prepared for manual invocation against an existing version tag and has not been run. [SUBMISSION.md](SUBMISSION.md) records npm bootstrap, trusted publisher and provenance requirements.
+[DESIGN.md](DESIGN.md) explains the research workflow and promotion path. [SECURITY.md](SECURITY.md) declares network and write authority. The prepared GHCR workflow builds a nonroot, one-shot Node 24 CLI from an exact version tag, tests its JSON help without a network, then publishes and attests the image digest. [CONTAINER.md](CONTAINER.md) documents the host-node connection and read-only feed mount. It has not yet been executed or independently verified. The separate manual npm workflow remains dormant, with its account/trusted-publisher requirements recorded in [SUBMISSION.md](SUBMISSION.md).
 
 ## Maintainer and support
 
